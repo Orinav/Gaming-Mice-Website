@@ -15,7 +15,6 @@ def initialize_mice_database():
     mice_database = get_mice_database()
     cursor = mice_database.cursor()
 
-    # השארנו אך ורק את טבלת העכברים!
     cursor.execute('''
                    CREATE TABLE IF NOT EXISTS mice
                    (
@@ -24,6 +23,11 @@ def initialize_mice_database():
                        model TEXT NOT NULL,
                        weight_grams INTEGER,
                        sensor TEXT NOT NULL,
+                       length REAL,
+                       width REAL,
+                       height REAL,
+                       shape_top TEXT,
+                       shape_side TEXT,
                        image_url TEXT,
                        buy_url TEXT
                    )
@@ -42,24 +46,16 @@ def insert_scraped_mice(mice_list):
         cursor.execute('SELECT id FROM mice WHERE brand = ? AND model = ?', (mouse['brand'], mouse['model']))
         if not cursor.fetchone():
             cursor.execute('''
-                           INSERT INTO mice (brand, model, weight_grams, sensor, image_url, buy_url)
-                           VALUES (?, ?, ?, ?, ?, ?)
-                           ''', (mouse['brand'], mouse['model'], mouse['weight'], mouse['sensor'], mouse['image'],
-                                 mouse['url']))
+                           INSERT INTO mice (brand, model, weight_grams, sensor, length, width, height, shape_top,
+                                             shape_side, image_url, buy_url)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           ''', (mouse['brand'], mouse['model'], mouse['weight'], mouse['sensor'],
+                                 mouse['length'], mouse['width'], mouse['height'],
+                                 mouse['shape_top'], mouse['shape_side'],
+                                 mouse['image'], mouse['url']))
     db.commit()
     db.close()
     print(f"🖱️ Inserted {len(mice_list)} new scraped mice into database.")
-
-
-def add_mouse_to_mice_database(brand, model, weight, sensor, image, buy_url):
-    db = get_mice_database()
-    cursor = db.cursor()
-    cursor.execute('''
-                   INSERT INTO mice (brand, model, weight_grams, sensor, image_url, buy_url)
-                   VALUES (?, ?, ?, ?, ?, ?)
-                   ''', (brand, model, weight, sensor, image, buy_url))
-    db.commit()
-    db.close()
 
 
 def delete_mouse_from_mice_database(mouse_id):

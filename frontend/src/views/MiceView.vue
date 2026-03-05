@@ -5,6 +5,7 @@ import CheckboxFilter from '../components/CheckboxFilter.vue'
 const mice = ref([])
 const searchQuery = ref('')
 const maxWeight = ref(150)
+const maxLength = ref(150)
 
 const selectedBrands = ref([])
 const selectedSensors = ref([])
@@ -39,8 +40,9 @@ const filteredMice = computed(() => {
     const matchesBrand = selectedBrands.value.length === 0 || selectedBrands.value.includes(mouse.brand)
     const matchesSensor = selectedSensors.value.length === 0 || selectedSensors.value.includes(mouse.sensor)
     const matchesWeight = mouse.weight_grams <= maxWeight.value
+    const matchesLength = mouse.length <= maxLength.value
 
-    return matchesSearch && matchesBrand && matchesSensor && matchesWeight
+    return matchesSearch && matchesBrand && matchesSensor && matchesWeight && matchesLength
   })
 })
 
@@ -49,6 +51,7 @@ const clearAll = () => {
   selectedBrands.value = []
   selectedSensors.value = []
   maxWeight.value = 150
+  maxLength.value = 150
 }
 
 const deleteMouse = async (mouseId) => {
@@ -81,10 +84,18 @@ const deleteMouse = async (mouseId) => {
         <CheckboxFilter :options="uniqueSensors" v-model="selectedSensors" />
       </div>
 
-      <div class="filter-group">
-        <h3>Weight Range</h3>
-        <input type="range" v-model="maxWeight" min="0" max="150" />
-        <p>0g - {{ maxWeight }}g</p>
+      <div class="filter-group sliders-group">
+        <div class="slider-container">
+          <h3>Max Weight</h3>
+          <input type="range" v-model="maxWeight" min="0" max="150" />
+          <p>0g - {{ maxWeight }}g</p>
+        </div>
+
+        <div class="slider-container">
+          <h3>Max Length</h3>
+          <input type="range" v-model="maxLength" min="0" max="150" />
+          <p>0mm - {{ maxLength }}mm</p>
+        </div>
       </div>
     </div>
 
@@ -94,6 +105,7 @@ const deleteMouse = async (mouseId) => {
           <th>Image</th>
           <th>Brand</th>
           <th>Model</th>
+          <th>Dimensions (L×W×H)</th>
           <th>Weight (g)</th>
           <th>Sensor</th>
           <th>Actions</th>
@@ -101,9 +113,18 @@ const deleteMouse = async (mouseId) => {
       </thead>
       <tbody>
         <tr v-for="mouse in filteredMice" :key="mouse.id">
-          <td><img :src="mouse.image_url" alt="Mouse image" class="mouse-img" v-if="mouse.image_url"/></td>
+          <td>
+            <img
+              :src="mouse.image_url"
+              class="mouse-img"
+              v-if="mouse.image_url"
+              loading="lazy"
+              alt="Mouse Image"
+            />
+          </td>
           <td>{{ mouse.brand }}</td>
           <td>{{ mouse.model }}</td>
+          <td>{{ mouse.length }} × {{ mouse.width }} × {{ mouse.height }}</td>
           <td>{{ mouse.weight_grams }}</td>
           <td>{{ mouse.sensor }}</td>
           <td>
@@ -115,115 +136,134 @@ const deleteMouse = async (mouseId) => {
   </div>
 </template>
 
-<style>
-/* איפוס רקע כללי של האתר למראה נקי */
-body {
-  background-color: #ffffff;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 20px;
-  color: #333;
-}
-
+<style scoped>
 .container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
 }
 
-/* אזור הכותרת וחיפוש */
 .header {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 40px; /* המרווח החדש שמרחיק את החיפוש מהתפריט העליון */
+  margin-top: 40px;
   margin-bottom: 30px;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 2rem;
 }
 
 .search-bar {
   display: flex;
-  gap: 15px;
+  gap: 10px;
+  width: 100%;
+  max-width: 500px;
 }
 
 .search-bar input {
+  flex: 1;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  width: 250px;
-  font-size: 1rem;
+  font-size: 16px;
 }
 
 .clear-btn {
-  background-color: #ff4d4d;
+  padding: 10px 20px;
+  background-color: #ff4757;
   color: white;
   border: none;
-  padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
 }
 
 .clear-btn:hover {
-  background-color: #ff3333;
+  background-color: #ff6b81;
 }
 
-/* אזור הפילטרים */
 .filters-section {
   display: flex;
-  justify-content: flex-start;
-  gap: 50px;
+  justify-content: space-between;
   background-color: #f8f9fa;
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 30px;
-  border: 1px solid #eaeaea;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.filter-group {
+  flex: 1;
+  padding: 0 15px;
+}
+
+.sliders-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.slider-container h3 {
+  margin-top: 0;
+  color: #2f3542;
+  border-bottom: 2px solid #eccc68;
+  padding-bottom: 5px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.slider-container p {
+  margin: 5px 0 0 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
 .filter-group h3 {
   margin-top: 0;
-  font-size: 1rem;
-  margin-bottom: 15px;
+  color: #2f3542;
+  border-bottom: 2px solid #eccc68;
+  padding-bottom: 5px;
+  display: inline-block;
 }
 
-/* עיצוב הטבלה */
 .mice-table {
   width: 100%;
   border-collapse: collapse;
   background-color: white;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .mice-table th, .mice-table td {
   padding: 15px;
   text-align: left;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid #f1f2f6;
 }
 
 .mice-table th {
-  font-weight: bold;
-  font-size: 0.95rem;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #2f3542;
 }
 
-/* הגבלת גודל התמונות (מה שהשתגע קודם) */
+.mice-table tr:hover {
+  background-color: #f1f2f6;
+}
+
 .mouse-img {
-  max-width: 50px;
-  max-height: 70px;
+  max-width: 80px;
+  max-height: 80px;
   object-fit: contain;
 }
 
-/* כפתורי פעולות */
-.fav-btn, .delete-btn {
+.delete-btn {
   background: none;
   border: none;
-  font-size: 1.2rem;
   cursor: pointer;
-  padding: 5px;
+  font-size: 1.2rem;
+  transition: transform 0.2s;
 }
 
-.fav-btn:hover, .delete-btn:hover {
-  transform: scale(1.1);
+.delete-btn:hover {
+  transform: scale(1.2);
 }
 </style>
