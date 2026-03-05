@@ -31,11 +31,40 @@ def scrape_eloshapes():
             page.wait_for_load_state("networkidle", timeout=30000)
             page.wait_for_timeout(3000)
 
-            print("Data should be loaded! Extracting HTML...")
+            print("Starting to scroll down to load ALL mice... (This might take a minute or two)")
+
+            # --- מנגנון הגלילה האוטומטית ---
+            last_count = 0
+            retries = 0
+
+            while True:
+                # גלילה לסוף העמוד
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                # המתנה קצרה כדי שהאתר ימשוך את הנתונים החדשים
+                page.wait_for_timeout(2000)
+
+                # בדיקה כמה כרטיסיות של עכברים קיימות עכשיו במסך
+                current_count = page.locator('.v-card--link').count()
+
+                if current_count == last_count:
+                    # אם המספר לא גדל, ננסה עוד 3 פעמים ליתר ביטחון (אולי האינטרנט טיפה איטי)
+                    retries += 1
+                    if retries >= 3:
+                        print("Reached the bottom of the page!")
+                        break
+                else:
+                    # אם המספר גדל, נאפס את ספירת הניסיונות ונדפיס התקדמות
+                    retries = 0
+                    print(f"Loaded {current_count} mice so far...")
+
+                last_count = current_count
+            # --- סוף מנגנון הגלילה ---
+
+            print("Extracting HTML...")
             html = page.content()
 
         except Exception as e:
-            print(f"❌ Error while waiting for page to load: {e}")
+            print(f"❌ Error while waiting for page to load or scrolling: {e}")
             browser.close()
             return []
 
@@ -44,7 +73,7 @@ def scrape_eloshapes():
     soup = BeautifulSoup(html, 'html.parser')
     mice_elements = soup.find_all('div', class_='v-card--link')
 
-    print(f"Found {len(mice_elements)} potential cards! Processing data...")
+    print(f"Found {len(mice_elements)} total cards! Processing data...")
 
     for element in mice_elements:
         try:
@@ -56,7 +85,6 @@ def scrape_eloshapes():
             brand = strings[0]
             model = strings[1]
 
-            # התיקון שלנו: מסננים את כפתור המיון שמתחזה לעכבר!
             if brand.lower() == "sort by" or model.lower() == "recently added":
                 continue
 

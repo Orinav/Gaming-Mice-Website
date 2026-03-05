@@ -1,324 +1,272 @@
 <script setup>
-import { ref, computed } from 'vue'
-import MiceTable from './components/MiceTable.vue'
+import { ref, computed, onMounted } from 'vue'
 import CheckboxFilter from './components/CheckboxFilter.vue'
-import SelectFilter from './components/SelectFilter.vue'
+// שים לב: מחקנו מכאן את הייבוא של SelectFilter כי כבר אין לנו Grip!
 
-const miceList = ref([])
+const mice = ref([])
+const favorites = ref([])
+const searchQuery = ref('')
+const maxWeight = ref(150)
+
 const selectedBrands = ref([])
 const selectedSensors = ref([])
-const selectedGrip = ref('')
-const searchQuery = ref('')
 
-// --- פילטר משקל חדש ---
-const minWeight = ref(0)
-const maxWeight = ref(150) // נקבע ברירת מחדל גבוהה כדי להציג הכל בהתחלה
-
-const gripOptions = [
-  { text: 'Claw', value: 'claw' },
-  { text: 'Fingertip', value: 'fingertip' },
-  { text: 'Palm', value: 'palm' }
-]
-
+// משיכת נתונים משרת הפלאסק
 const fetchMice = async () => {
-  const response = await fetch('http://127.0.0.1:5000/api/mice')
-  miceList.value = await response.json()
-}
-
-const resetFilters = () => {
-  selectedBrands.value = []
-  selectedSensors.value = []
-  selectedGrip.value = ''
-  searchQuery.value = ''
-  minWeight.value = 0
-  maxWeight.value = 150 // איפוס גם של המשקל
-}
-
-const availableBrands = computed(() => [...new Set(miceList.value.map(mouse => mouse.brand))])
-const availableSensors = computed(() => [...new Set(miceList.value.map(mouse => mouse.sensor))])
-
-const filteredMice = computed(() => {
-  return miceList.value.filter(mouse => {
-    const matchBrand = selectedBrands.value.length === 0 || selectedBrands.value.includes(mouse.brand)
-    const matchSensor = selectedSensors.value.length === 0 || selectedSensors.value.includes(mouse.sensor)
-    const matchGrip = selectedGrip.value === '' || mouse.grip_style.toLowerCase().includes(selectedGrip.value.toLowerCase())
-
-    const query = searchQuery.value.toLowerCase()
-    const matchSearch = mouse.brand.toLowerCase().includes(query) ||
-                        mouse.model.toLowerCase().includes(query)
-
-    // --- לוגיקת סינון המשקל ---
-    const matchWeight = mouse.weight_grams >= minWeight.value && mouse.weight_grams <= maxWeight.value
-
-    return matchBrand && matchSensor && matchGrip && matchSearch && matchWeight
-  })
-})
-
-fetchMice()
-
-// אובייקט לאגירת הנתונים מהטופס
-const newMouse = ref({
-  brand: '',
-  model: '',
-  weight_grams: 0,
-  grip_style: '',
-  sensor: '',
-  image_url: '',
-  buy_url: ''
-})
-
-// פונקציה לשליחת עכבר חדש ל-Backend
-const addMouse = async () => {
   try {
-    const response = await fetch('http://127.0.0.1:5000/api/mice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newMouse.value)
-    })
-
-    if (response.ok) {
-      fetchMice() // רענון הטבלה כדי לראות את העכבר החדש
-      // איפוס הטופס
-      newMouse.value = { brand: '', model: '', weight_grams: 0, grip_style: '', sensor: '', image_url: '', buy_url: '' }
-    }
+    const response = await fetch('http://127.0.0.1:5000/api/mice')
+    mice.value = await response.json()
   } catch (error) {
-    console.error("Error adding mouse:", error)
+    console.error('Error fetching mice:', error)
   }
 }
 
-// פונקציה למחיקת עכבר
-const deleteMouse = async (id) => {
-  if (confirm("Are you sure you want to delete this mouse?")) {
-    try {
-      const response = await fetch(`http://127.0.0.1:5000/api/mice/${id}`, {
-        method: 'DELETE'
+// משיכת מועדפים
+const fetchFavorites = async () => {
+  try {
+    const response = await fetch('http://127.0.0.1:5000/api/favorites')
+    const data = await response.json()
+    favorites.value = data.map(fav => fav.id)
+  } catch (error) {
+    console.error('Error fetching favorites:', error)
+  }
+}
+
+onMounted(() => {
+  fetchMice()
+  fetchFavorites()
+})
+
+// יצירת רשימות ייחודיות לפילטרים (ללא Grip)
+const uniqueBrands = computed(() => {
+  const brands = mice.value.map(m => m.brand).filter(b => b && b !== 'Unknown')
+  return [...new Set(brands)].sort()
+})
+
+const uniqueSensors = computed(() => {
+  const sensors = mice.value.map(m => m.sensor).filter(s => s && s !== 'Unknown')
+  return [...new Set(sensors)].sort()
+})
+
+// סינון העכברים
+const filteredMice = computed(() => {
+  return mice.value.filter(mouse => {
+    const matchesSearch = mouse.model.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+                          mouse.brand.toLowerCase().includes(searchQuery.value.toLowerCase())
+    const matchesBrand = selectedBrands.value.length === 0 || selectedBrands.value.includes(mouse.brand)
+    const matchesSensor = selectedSensors.value.length === 0 || selectedSensors.value.includes(mouse.sensor)
+    const matchesWeight = mouse.weight_grams <= maxWeight.value
+
+    return matchesSearch && matchesBrand && matchesSensor && matchesWeight
+  })
+})
+
+const clearAll = () => {
+  searchQuery.value = ''
+  selectedBrands.value = []
+  selectedSensors.value = []
+  maxWeight.value = 150
+}
+
+const toggleFavorite = async (mouseId) => {
+  const isFav = favorites.value.includes(mouseId)
+  try {
+    if (isFav) {
+      await fetch(`http://127.0.0.1:5000/api/favorites/${mouseId}`, { method: 'DELETE' })
+      favorites.value = favorites.value.filter(id => id !== mouseId)
+    } else {
+      await fetch('http://127.0.0.1:5000/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mouse_id: mouseId })
       })
-      if (response.ok) fetchMice()
-    } catch (error) {
-      console.error("Error deleting mouse:", error)
+      favorites.value.push(mouseId)
     }
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+  }
+}
+
+const deleteMouse = async (mouseId) => {
+  try {
+    await fetch(`http://127.0.0.1:5000/api/mice/${mouseId}`, { method: 'DELETE' })
+    mice.value = mice.value.filter(m => m.id !== mouseId)
+  } catch (error) {
+    console.error('Error deleting mouse:', error)
   }
 }
 </script>
 
 <template>
-  <div class="content">
-    <div class="header-section">
+  <div class="container">
+    <header class="header">
       <h1>Gaming Mice Comparator</h1>
-      <div class="search-area">
-        <input
-          v-model="searchQuery"
-          placeholder="Search model or brand..."
-          class="search-input"
-        >
-        <button @click="resetFilters" class="reset-btn">Clear All</button>
+      <div class="search-bar">
+        <input type="text" v-model="searchQuery" placeholder="Search..." />
+        <button @click="clearAll" class="clear-btn">Clear All</button>
       </div>
-    </div>
+    </header>
 
-    <div class="admin-panel">
-      <h3>Add New Mouse (Admin Panel)</h3>
-      <div class="add-form">
-        <input v-model="newMouse.brand" placeholder="Brand">
-        <input v-model="newMouse.model" placeholder="Model">
-        <input v-model.number="newMouse.weight_grams" type="number" placeholder="Weight (g)">
-        <input v-model="newMouse.grip_style" placeholder="Grip Style">
-        <input v-model="newMouse.sensor" placeholder="Sensor">
-        <input v-model="newMouse.image_url" placeholder="Image Path (e.g. /images/...)">
-        <input v-model="newMouse.buy_url" placeholder="Buy Link">
-        <button @click="addMouse" class="add-btn">Add Mouse</button>
+    <div class="filters-section">
+      <div class="filter-group">
+        <h3>Brands</h3>
+        <CheckboxFilter :options="uniqueBrands" v-model="selectedBrands" />
       </div>
-    </div>
-
-    <div class="filters-container">
-      <CheckboxFilter
-        title="Filter by Brand:"
-        :options="availableBrands"
-        v-model="selectedBrands"
-      />
-
-      <CheckboxFilter
-        title="Filter by Sensor:"
-        :options="availableSensors"
-        v-model="selectedSensors"
-      />
-
-      <SelectFilter
-        title="Filter by Grip Style:"
-        defaultLabel="All Grips"
-        :options="gripOptions"
-        v-model="selectedGrip"
-      />
 
       <div class="filter-group">
-        <h3>Weight Range (g):</h3>
-        <div class="weight-inputs">
-          <input type="number" v-model.number="minWeight" class="small-num-input">
-          <span>to</span>
-          <input type="number" v-model.number="maxWeight" class="small-num-input">
-        </div>
-        <input
-          type="range"
-          v-model.number="maxWeight"
-          min="0"
-          max="150"
-          class="weight-slider"
-        >
+        <h3>Sensors</h3>
+        <CheckboxFilter :options="uniqueSensors" v-model="selectedSensors" />
+      </div>
+
+      <div class="filter-group">
+        <h3>Weight Range</h3>
+        <input type="range" v-model="maxWeight" min="0" max="150" />
+        <p>0g - {{ maxWeight }}g</p>
       </div>
     </div>
 
-    <div v-if="filteredMice.length > 0">
-      <MiceTable
-        :mice="filteredMice"
-        @delete-mouse="deleteMouse"
-      />
-    </div>
-    <div v-else class="no-results">
-      <p>No mice match your search criteria.</p>
-    </div>
+    <table class="mice-table">
+      <thead>
+        <tr>
+          <th>Fav</th>
+          <th>Image</th>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Weight (g)</th>
+          <th>Sensor</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="mouse in filteredMice" :key="mouse.id">
+          <td>
+            <button class="fav-btn" @click="toggleFavorite(mouse.id)">
+              <span v-if="favorites.includes(mouse.id)">❤️</span>
+              <span v-else>🤍</span>
+            </button>
+          </td>
+          <td><img :src="mouse.image_url" alt="Mouse image" class="mouse-img" v-if="mouse.image_url"/></td>
+          <td>{{ mouse.brand }}</td>
+          <td>{{ mouse.model }}</td>
+          <td>{{ mouse.weight_grams }}</td>
+          <td>{{ mouse.sensor }}</td>
+          <td>
+            <button class="delete-btn" @click="deleteMouse(mouse.id)">🗑️</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <style>
-* { box-sizing: border-box; }
-body { font-family: Calibri, sans-serif; margin: 0; background: silver; }
-
-.search-input {
-    padding: 10px;
-    width: 250px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    margin-right: 10px;
-}
-.search-area {
-    display: flex;
-    align-items: center;
+/* איפוס רקע כללי של האתר למראה נקי */
+body {
+  background-color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 20px;
+  color: #333;
 }
 
-.content {
-    max-width: 1000px;
-    margin: 0 auto;
-    background: white;
-    padding: 20px;
-    min-height: 100vh;
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.header-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+/* אזור הכותרת וחיפוש */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
 }
 
-.filters-container {
-    background: #f9f9f9;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 20px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 40px;
+.header h1 {
+  margin: 0;
+  font-size: 2rem;
 }
 
-.reset-btn {
-    padding: 10px 15px;
-    background-color: #ff4d4d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
+.search-bar {
+  display: flex;
+  gap: 15px;
 }
 
-.reset-btn:hover { background-color: #cc0000; }
-
-.no-results {
-    text-align: center;
-    padding: 40px;
-    background: #fdf2f2;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    color: #721c24;
-    font-size: 18px;
+.search-bar input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 250px;
+  font-size: 1rem;
 }
 
-.weight-inputs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
+.clear-btn {
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
 }
 
-.input-box {
-    display: flex;
-    flex-direction: column;
+.clear-btn:hover {
+  background-color: #ff3333;
 }
 
-.input-box label {
-    font-size: 12px;
-    color: #666;
+/* אזור הפילטרים */
+.filters-section {
+  display: flex;
+  justify-content: flex-start;
+  gap: 50px;
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  border: 1px solid #eaeaea;
 }
 
-.input-box input {
-    width: 60px;
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+.filter-group h3 {
+  margin-top: 0;
+  font-size: 1rem;
+  margin-bottom: 15px;
 }
 
-.weight-slider {
-    width: 100%;
-    cursor: pointer;
-    accent-color: #42b883; /* צבע הירוק של Vue */
+/* עיצוב הטבלה */
+.mice-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
 }
 
-.slider-hint {
-    font-size: 12px;
-    margin-top: 5px;
-    color: #42b883;
-    font-weight: bold;
+.mice-table th, .mice-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #eaeaea;
 }
 
-.admin-panel {
-    background: #f0f0f0;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px dashed #999;
+.mice-table th {
+  font-weight: bold;
+  font-size: 0.95rem;
 }
 
-.add-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+/* הגבלת גודל התמונות (מה שהשתגע קודם) */
+.mouse-img {
+  max-width: 50px;
+  max-height: 70px;
+  object-fit: contain;
 }
 
-.add-form input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    flex: 1;
-    min-width: 120px;
+/* כפתורי פעולות */
+.fav-btn, .delete-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 5px;
 }
 
-.add-btn {
-    background-color: #42b883;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.delete-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 18px;
-    transition: transform 0.2s;
-}
-
-.delete-btn:hover {
-    transform: scale(1.2);
+.fav-btn:hover, .delete-btn:hover {
+  transform: scale(1.1);
 }
 </style>
