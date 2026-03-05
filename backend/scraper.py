@@ -106,6 +106,9 @@ def scrape_eloshapes():
                                                                  'ergonomic', 'large', 'medium', 'small', 'mini']:
                         sensor = chip_text
 
+            if weight == 0:
+                continue
+
             scraped_data.append({
                 'brand': brand,
                 'model': model,

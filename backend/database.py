@@ -15,89 +15,19 @@ def initialize_mice_database():
     mice_database = get_mice_database()
     cursor = mice_database.cursor()
 
+    # השארנו אך ורק את טבלת העכברים!
     cursor.execute('''
                    CREATE TABLE IF NOT EXISTS mice
                    (
-                       id
-                       INTEGER
-                       PRIMARY
-                       KEY
-                       AUTOINCREMENT,
-                       brand
-                       TEXT
-                       NOT
-                       NULL,
-                       model
-                       TEXT
-                       NOT
-                       NULL,
-                       weight_grams
-                       INTEGER,
-                       sensor
-                       TEXT
-                       NOT
-                       NULL,
-                       image_url
-                       TEXT,
-                       buy_url
-                       TEXT
+                       id INTEGER PRIMARY KEY AUTOINCREMENT,
+                       brand TEXT NOT NULL,
+                       model TEXT NOT NULL,
+                       weight_grams INTEGER,
+                       sensor TEXT NOT NULL,
+                       image_url TEXT,
+                       buy_url TEXT
                    )
                    ''')
-
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS users
-                   (
-                       id
-                       INTEGER
-                       PRIMARY
-                       KEY
-                       AUTOINCREMENT,
-                       username
-                       TEXT
-                       UNIQUE
-                       NOT
-                       NULL,
-                       password
-                       TEXT
-                       NOT
-                       NULL
-                   )
-                   ''')
-
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS favorites
-                   (
-                       user_id
-                       INTEGER,
-                       mouse_id
-                       INTEGER,
-                       PRIMARY
-                       KEY
-                   (
-                       user_id,
-                       mouse_id
-                   ),
-                       FOREIGN KEY
-                   (
-                       user_id
-                   ) REFERENCES users
-                   (
-                       id
-                   ),
-                       FOREIGN KEY
-                   (
-                       mouse_id
-                   ) REFERENCES mice
-                   (
-                       id
-                   )
-                       )
-                   ''')
-
-    cursor.execute('SELECT COUNT(*) AS total_users FROM users')
-    if cursor.fetchone()['total_users'] == 0:
-        cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', ('admin', '1234'))
-        print("👤 Default user created (ID: 1)")
 
     mice_database.commit()
     mice_database.close()
@@ -138,37 +68,3 @@ def delete_mouse_from_mice_database(mouse_id):
     cursor.execute('DELETE FROM mice WHERE id = ?', (mouse_id,))
     db.commit()
     db.close()
-
-
-def add_to_favorites(user_id, mouse_id):
-    db = get_mice_database()
-    cursor = db.cursor()
-    try:
-        cursor.execute('INSERT INTO favorites (user_id, mouse_id) VALUES (?, ?)', (user_id, mouse_id))
-        db.commit()
-    except sqlite3.IntegrityError:
-        pass
-    finally:
-        db.close()
-
-
-def remove_from_favorites(user_id, mouse_id):
-    db = get_mice_database()
-    cursor = db.cursor()
-    cursor.execute('DELETE FROM favorites WHERE user_id = ? AND mouse_id = ?', (user_id, mouse_id))
-    db.commit()
-    db.close()
-
-
-def get_user_favorites(user_id):
-    db = get_mice_database()
-    cursor = db.cursor()
-    cursor.execute('''
-                   SELECT mice.*
-                   FROM mice
-                            JOIN favorites ON mice.id = favorites.mouse_id
-                   WHERE favorites.user_id = ?
-                   ''', (user_id,))
-    favs = [dict(row) for row in cursor.fetchall()]
-    db.close()
-    return favs
