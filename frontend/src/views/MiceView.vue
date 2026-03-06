@@ -1,14 +1,26 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import CheckboxFilter from '../components/CheckboxFilter.vue'
 
 const mice = ref([])
 const searchQuery = ref('')
+
+const minWeight = ref(0)
 const maxWeight = ref(150)
+const minLength = ref(0)
 const maxLength = ref(150)
 
 const selectedBrands = ref([])
 const selectedSensors = ref([])
+
+const sortKey = ref('')
+const sortOrder = ref(1)
+
+watch(minWeight, (newVal) => { if (newVal > maxWeight.value) minWeight.value = maxWeight.value })
+watch(maxWeight, (newVal) => { if (newVal < minWeight.value) maxWeight.value = minWeight.value })
+
+watch(minLength, (newVal) => { if (newVal > maxLength.value) minLength.value = maxLength.value })
+watch(maxLength, (newVal) => { if (newVal < minLength.value) maxLength.value = minLength.value })
 
 const fetchMice = async () => {
   try {
@@ -28,30 +40,81 @@ const uniqueBrands = computed(() => {
   return [...new Set(brands)].sort()
 })
 
+// --- התיקון הגאוני שלך: סינון מדורג לחיישנים ---
 const uniqueSensors = computed(() => {
-  const sensors = mice.value.map(m => m.sensor).filter(s => s && s !== 'Unknown')
+  // אם נבחרו מותגים, נסנן קודם את מאגר העכברים כך שיכיל רק את המותגים האלו.
+  // אם לא נבחרו מותגים (המערך ריק), ניקח את כל העכברים הרגילים.
+  const relevantMice = selectedBrands.value.length > 0
+    ? mice.value.filter(m => selectedBrands.value.includes(m.brand))
+    : mice.value
+
+  // עכשיו נחלץ את החיישנים אך ורק מתוך העכברים הרלוונטיים שמצאנו
+  const sensors = relevantMice.map(m => m.sensor).filter(s => s && s !== 'Unknown')
   return [...new Set(sensors)].sort()
 })
 
+// שומר סף: אם רשימת החיישנים האפשריים השתנתה (כי בחרת מותג),
+// נוודא שלא נשארו מסומנים בטעות חיישנים שכבר לא קיימים ברשימה!
+watch(uniqueSensors, (newValidSensors) => {
+  selectedSensors.value = selectedSensors.value.filter(sensor => newValidSensors.includes(sensor))
+})
+// ------------------------------------------------
+
+const sortBy = (key) => {
+  if (sortKey.value === key) {
+    if (sortOrder.value === 1) {
+      sortOrder.value = -1
+    } else {
+      sortKey.value = ''
+      sortOrder.value = 1
+    }
+  } else {
+    sortKey.value = key
+    sortOrder.value = 1
+  }
+}
+
 const filteredMice = computed(() => {
-  return mice.value.filter(mouse => {
+  let result = mice.value.filter(mouse => {
     const matchesSearch = mouse.model.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                           mouse.brand.toLowerCase().includes(searchQuery.value.toLowerCase())
     const matchesBrand = selectedBrands.value.length === 0 || selectedBrands.value.includes(mouse.brand)
     const matchesSensor = selectedSensors.value.length === 0 || selectedSensors.value.includes(mouse.sensor)
-    const matchesWeight = mouse.weight_grams <= maxWeight.value
-    const matchesLength = mouse.length <= maxLength.value
+
+    const matchesWeight = mouse.weight_grams >= minWeight.value && mouse.weight_grams <= maxWeight.value
+    const matchesLength = mouse.length >= minLength.value && mouse.length <= maxLength.value
 
     return matchesSearch && matchesBrand && matchesSensor && matchesWeight && matchesLength
   })
+
+  if (sortKey.value) {
+    result = result.sort((a, b) => {
+      let aVal = a[sortKey.value]
+      let bVal = b[sortKey.value]
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return (aVal - bVal) * sortOrder.value
+      }
+
+      aVal = aVal ? String(aVal).toLowerCase() : ''
+      bVal = bVal ? String(bVal).toLowerCase() : ''
+      return aVal.localeCompare(bVal) * sortOrder.value
+    })
+  }
+
+  return result
 })
 
 const clearAll = () => {
   searchQuery.value = ''
   selectedBrands.value = []
   selectedSensors.value = []
+  minWeight.value = 0
   maxWeight.value = 150
+  minLength.value = 0
   maxLength.value = 150
+  sortKey.value = ''
+  sortOrder.value = 1
 }
 
 const deleteMouse = async (mouseId) => {
@@ -86,15 +149,33 @@ const deleteMouse = async (mouseId) => {
 
       <div class="filter-group sliders-group">
         <div class="slider-container">
-          <h3>Max Weight</h3>
-          <input type="range" v-model="maxWeight" min="0" max="150" />
-          <p>0g - {{ maxWeight }}g</p>
+          <h3>Weight Range</h3>
+          <div class="dual-slider">
+            <div class="slider-row">
+              <span class="slider-label">Min</span>
+              <input type="range" v-model.number="minWeight" min="0" max="150" />
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Max</span>
+              <input type="range" v-model.number="maxWeight" min="0" max="150" />
+            </div>
+          </div>
+          <p class="range-display">{{ minWeight }}g - {{ maxWeight }}g</p>
         </div>
 
         <div class="slider-container">
-          <h3>Max Length</h3>
-          <input type="range" v-model="maxLength" min="0" max="150" />
-          <p>0mm - {{ maxLength }}mm</p>
+          <h3>Length Range</h3>
+          <div class="dual-slider">
+            <div class="slider-row">
+              <span class="slider-label">Min</span>
+              <input type="range" v-model.number="minLength" min="0" max="150" />
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Max</span>
+              <input type="range" v-model.number="maxLength" min="0" max="150" />
+            </div>
+          </div>
+          <p class="range-display">{{ minLength }}mm - {{ maxLength }}mm</p>
         </div>
       </div>
     </div>
@@ -103,10 +184,27 @@ const deleteMouse = async (mouseId) => {
       <thead>
         <tr>
           <th>Image</th>
-          <th>Brand</th>
-          <th>Model</th>
-          <th>Dimensions (L×W×H)</th>
-          <th>Weight (g)</th>
+
+          <th @click="sortBy('brand')" class="sortable-header" title="Click to sort">
+            Brand
+            <span v-if="sortKey === 'brand'" class="sort-arrow">{{ sortOrder === 1 ? '▲' : '▼' }}</span>
+          </th>
+
+          <th @click="sortBy('model')" class="sortable-header" title="Click to sort">
+            Model
+            <span v-if="sortKey === 'model'" class="sort-arrow">{{ sortOrder === 1 ? '▲' : '▼' }}</span>
+          </th>
+
+          <th @click="sortBy('length')" class="sortable-header" title="Click to sort by Length">
+            Dimensions (L×W×H)
+            <span v-if="sortKey === 'length'" class="sort-arrow">{{ sortOrder === 1 ? '▲' : '▼' }}</span>
+          </th>
+
+          <th @click="sortBy('weight_grams')" class="sortable-header" title="Click to sort by Weight">
+            Weight (g)
+            <span v-if="sortKey === 'weight_grams'" class="sort-arrow">{{ sortOrder === 1 ? '▲' : '▼' }}</span>
+          </th>
+
           <th>Sensor</th>
           <th>Actions</th>
         </tr>
@@ -198,7 +296,7 @@ const deleteMouse = async (mouseId) => {
 .sliders-group {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 25px;
 }
 
 .slider-container h3 {
@@ -207,13 +305,42 @@ const deleteMouse = async (mouseId) => {
   border-bottom: 2px solid #eccc68;
   padding-bottom: 5px;
   display: inline-block;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
-.slider-container p {
-  margin: 5px 0 0 0;
-  font-size: 0.9rem;
-  color: #555;
+.dual-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-label {
+  width: 35px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #747d8c;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  cursor: pointer;
+}
+
+.range-display {
+  margin: 15px 0 0 0;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #2f3542;
+  text-align: center;
+  background-color: #f1f2f6;
+  padding: 5px;
+  border-radius: 4px;
 }
 
 .filter-group h3 {
@@ -243,6 +370,23 @@ const deleteMouse = async (mouseId) => {
   background-color: #f8f9fa;
   font-weight: 600;
   color: #2f3542;
+  user-select: none;
+}
+
+.sortable-header {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sortable-header:hover {
+  background-color: #e2e6ea;
+}
+
+.sort-arrow {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 0.8rem;
+  color: #ff4757;
 }
 
 .mice-table tr:hover {
