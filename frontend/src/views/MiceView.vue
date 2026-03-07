@@ -40,25 +40,17 @@ const uniqueBrands = computed(() => {
   return [...new Set(brands)].sort()
 })
 
-// --- התיקון הגאוני שלך: סינון מדורג לחיישנים ---
 const uniqueSensors = computed(() => {
-  // אם נבחרו מותגים, נסנן קודם את מאגר העכברים כך שיכיל רק את המותגים האלו.
-  // אם לא נבחרו מותגים (המערך ריק), ניקח את כל העכברים הרגילים.
   const relevantMice = selectedBrands.value.length > 0
     ? mice.value.filter(m => selectedBrands.value.includes(m.brand))
     : mice.value
-
-  // עכשיו נחלץ את החיישנים אך ורק מתוך העכברים הרלוונטיים שמצאנו
   const sensors = relevantMice.map(m => m.sensor).filter(s => s && s !== 'Unknown')
   return [...new Set(sensors)].sort()
 })
 
-// שומר סף: אם רשימת החיישנים האפשריים השתנתה (כי בחרת מותג),
-// נוודא שלא נשארו מסומנים בטעות חיישנים שכבר לא קיימים ברשימה!
 watch(uniqueSensors, (newValidSensors) => {
   selectedSensors.value = selectedSensors.value.filter(sensor => newValidSensors.includes(sensor))
 })
-// ------------------------------------------------
 
 const sortBy = (key) => {
   if (sortKey.value === key) {
@@ -253,7 +245,7 @@ const deleteMouse = async (mouseId) => {
   display: flex;
   gap: 10px;
   width: 100%;
-  max-width: 500px;
+  max-width: 600px;
 }
 
 .search-bar input {

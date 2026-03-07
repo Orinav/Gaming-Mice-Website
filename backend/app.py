@@ -1,25 +1,46 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from flask_cors import CORS
-from database import initialize_mice_database, get_mice_database, delete_mouse_from_mice_database
+import logging
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from database import db_get_mice, db_delete
+from scraper import sync_mice_data_job
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%d-%b-%y %H:%M:%S')
 
 app = Flask(__name__)
 CORS(app)
 
-initialize_mice_database()
+# Making the scheduler work in 00:00 in Israel timezone.
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=sync_mice_data_job, trigger="cron", hour=0, minute=0, timezone="Asia/Jerusalem")
+scheduler.start()
+
 
 @app.route('/api/mice', methods=['GET'])
-def get_mice():
-    db = get_mice_database()
-    cursor = db.cursor()
-    cursor.execute('SELECT * FROM mice')
-    all_mice = [dict(row) for row in cursor.fetchall()]
-    db.close()
-    return jsonify(all_mice)
+def api_get_mice():
+    try:
+        mice = db_get_mice()
+        mice_amount = len(mice)
+        logger.info(f'API Request: Successfully fetched {mice_amount} mice.')
+        return jsonify(mice)
+    except Exception as e:
+        logger.exception(f'Error in GET /api/mice: {e}.')
+        return jsonify({"error": "Failed to fetch mice."}), 500
 
 @app.route('/api/mice/<int:mouse_id>', methods=['DELETE'])
-def delete_mouse(mouse_id):
-    delete_mouse_from_mice_database(mouse_id)
-    return jsonify({"message": "Mouse deleted!"}), 200
+def api_delete_mouse(mouse_id):
+    try:
+        db_delete(mouse_id)
+        logger.info(f'API Request: Deleted mouse with ID {mouse_id}.')
+        return '', 204
+    except Exception as e:
+        logger.exception(f'Error in DELETE /api/mice/{mouse_id}: {e}')
+        return jsonify({"error": "Failed to delete mouse"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    logger.info("Starting Flask server...")
+    app.run(debug=True, use_reloader=False)

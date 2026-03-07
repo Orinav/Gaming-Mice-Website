@@ -1,66 +1,89 @@
 import sqlite3
+import logging
 import os
 
+logger = logging.getLogger(__name__)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'mice_catalog.db')
+DB_NAME = os.path.join(BASE_DIR, 'mice_catalog.db')
 
 
-def get_mice_database():
-    mice_database = sqlite3.connect(DB_PATH)
-    mice_database.row_factory = sqlite3.Row
-    return mice_database
+def db_connection():
+    connection = sqlite3.connect(DB_NAME)
+    connection.row_factory = sqlite3.Row
+    return connection
 
+def db_init():
+    try:
+        with db_connection() as connection: #First with = closing the file.
+            with connection: #Second with = commiting the file.
+                cursor = connection.cursor()
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS mice
+                    (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        brand TEXT,
+                        model TEXT,
+                        weight_grams REAL,
+                        sensor TEXT,
+                        length REAL,
+                        width REAL,
+                        height REAL,
+                        shape_top TEXT,
+                        shape_side TEXT,
+                        image_url TEXT
+                    )
+                ''')
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.exception(f'Error in initializing the database: {e}')
 
-def initialize_mice_database():
-    mice_database = get_mice_database()
-    cursor = mice_database.cursor()
+def db_insert(mice):
+    query = '''
+        INSERT INTO mice (brand, model, weight_grams, sensor, length, width, height, shape_top, shape_side, image_url)
+        VALUES (:brand, :model, :weight_grams, :sensor, :length, :width, :height, :shape_top, :shape_side, :image_url)
+    '''
+    try:
+        with db_connection() as connection:
+            with connection:
+                cursor = connection.cursor()
+                for mouse in mice:
+                    cursor.execute(query, mouse)
+        mice_amount = len(mice)
+        logger.info(f'Inserted {mice_amount} mice into the database.')
+    except Exception as e:
+        logger.exception(f'Error inserting mice into database: {e}')
 
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS mice
-                   (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       brand TEXT NOT NULL,
-                       model TEXT NOT NULL,
-                       weight_grams INTEGER,
-                       sensor TEXT NOT NULL,
-                       length REAL,
-                       width REAL,
-                       height REAL,
-                       shape_top TEXT,
-                       shape_side TEXT,
-                       image_url TEXT,
-                       buy_url TEXT
-                   )
-                   ''')
+def db_delete(mouse_id):
+    try:
+        with db_connection() as connection:
+            with connection:
+                cursor = connection.cursor()
+                cursor.execute("DELETE FROM mice WHERE id = ?", (mouse_id,))
+    except Exception as e:
+        logger.exception(f'Error deleting mice from database: {e}')
 
-    mice_database.commit()
-    mice_database.close()
-    print("✅ Database tables initialized successfully.")
+def db_reset():
+    try:
+        with db_connection() as connection:
+            with connection:
+                cursor = connection.cursor()
+                cursor.execute("DROP TABLE IF EXISTS mice")
+        logger.info("Mice table dropped.")
+        db_init()
+    except Exception as e:
+        logger.exception(f'Error resetting mice table: {e}')
 
-
-def insert_scraped_mice(mice_list):
-    db = get_mice_database()
-    cursor = db.cursor()
-
-    for mouse in mice_list:
-        cursor.execute('SELECT id FROM mice WHERE brand = ? AND model = ?', (mouse['brand'], mouse['model']))
-        if not cursor.fetchone():
-            cursor.execute('''
-                           INSERT INTO mice (brand, model, weight_grams, sensor, length, width, height, shape_top,
-                                             shape_side, image_url, buy_url)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                           ''', (mouse['brand'], mouse['model'], mouse['weight'], mouse['sensor'],
-                                 mouse['length'], mouse['width'], mouse['height'],
-                                 mouse['shape_top'], mouse['shape_side'],
-                                 mouse['image'], mouse['url']))
-    db.commit()
-    db.close()
-    print(f"🖱️ Inserted {len(mice_list)} new scraped mice into database.")
-
-
-def delete_mouse_from_mice_database(mouse_id):
-    db = get_mice_database()
-    cursor = db.cursor()
-    cursor.execute('DELETE FROM mice WHERE id = ?', (mouse_id,))
-    db.commit()
-    db.close()
+def db_get_mice():
+    try:
+        with db_connection() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT * FROM mice")
+            rows = cursor.fetchall()
+        mice_list = []
+        for row in rows:
+            mice_list.append(dict(row))
+        return mice_list
+    except Exception as e:
+        logger.exception(f'Error getting mice list: {e}')
+        return []

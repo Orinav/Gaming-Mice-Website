@@ -1,13 +1,15 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 const mice = ref([])
 const searchQuery = ref('')
 const selectedMice = ref([])
 
 const alignOption = ref('center')
-
 const arenaColors = ['#00e5ff', '#ffea00', '#ff00ff', '#00ff00', '#ff4757', '#ffa502', '#7bed9f']
+
+// משתנה חדש למעקב אחרי המיקום של המקלדת ברשימה הנפתחת
+const highlightedIndex = ref(-1)
 
 const fetchMice = async () => {
   try {
@@ -23,19 +25,60 @@ onMounted(() => {
   fetchMice()
 })
 
+// כששורת החיפוש משתנה, נאפס את המיקום של המקלדת
+watch(searchQuery, () => {
+  highlightedIndex.value = -1
+})
+
+// מנוע החיפוש החכם (Tokenized)
 const searchResults = computed(() => {
   if (!searchQuery.value.trim()) return []
-  const query = searchQuery.value.toLowerCase()
-  return mice.value.filter(m =>
-    (m.brand + ' ' + m.model).toLowerCase().includes(query) &&
-    !selectedMice.value.find(selected => selected.id === m.id)
-  ).slice(0, 15)
+
+  // מפרקים את החיפוש למילים נפרדות (מפרידים לפי רווחים)
+  const queryWords = searchQuery.value.toLowerCase().trim().split(/\s+/)
+
+  return mice.value.filter(m => {
+    const fullName = (m.brand + ' ' + m.model).toLowerCase()
+
+    // מוודאים ש*כל* המילים שחיפשנו מופיעות בשם המלא, לא משנה הסדר!
+    const matchesSearch = queryWords.every(word => fullName.includes(word))
+    const notSelected = !selectedMice.value.find(selected => selected.id === m.id)
+
+    return matchesSearch && notSelected
+  }).slice(0, 15)
 })
+
+// פונקציה שמטפלת בלחיצות המקלדת
+const handleKeydown = (e) => {
+  if (searchResults.value.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault() // מונע מהסמן לקפוץ לתחילת השורה
+    highlightedIndex.value = (highlightedIndex.value + 1) % searchResults.value.length
+  }
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    // חישוב מתמטי קטן כדי שהחץ למעלה יעשה לופ לתחתית הרשימה
+    highlightedIndex.value = (highlightedIndex.value - 1 + searchResults.value.length) % searchResults.value.length
+  }
+  else if (e.key === 'Enter') {
+    e.preventDefault()
+    // אם בחרנו משהו עם החצים - נוסיף אותו
+    if (highlightedIndex.value >= 0 && highlightedIndex.value < searchResults.value.length) {
+      addMouseToArena(searchResults.value[highlightedIndex.value])
+    }
+    // אם לא השתמשנו בחצים בכלל אבל יש תוצאות - אנטר יוסיף את התוצאה הראשונה אוטומטית!
+    else if (searchResults.value.length > 0) {
+      addMouseToArena(searchResults.value[0])
+    }
+  }
+}
 
 const addMouseToArena = (mouse) => {
   if (selectedMice.value.length < arenaColors.length) {
     selectedMice.value.push(mouse)
     searchQuery.value = ''
+    highlightedIndex.value = -1 // מאפסים מקלדת אחרי ההוספה
   } else {
     alert('Arena is full! Remove a mouse before adding a new one.')
   }
@@ -102,11 +145,18 @@ const getSideViewStyle = (mouse) => {
         <input
           type="text"
           v-model="searchQuery"
-          placeholder="🔍 Search for a mouse to add (e.g., Logitech Superstrike)..."
+          @keydown="handleKeydown"
+          placeholder="🔍 Search for a mouse to add (e.g., Logitech Superlight)..."
           class="arena-search-input"
         />
         <ul v-if="searchResults.length > 0" class="search-dropdown">
-          <li v-for="m in searchResults" :key="m.id" @click="addMouseToArena(m)">
+          <li
+            v-for="(m, index) in searchResults"
+            :key="m.id"
+            @click="addMouseToArena(m)"
+            @mouseover="highlightedIndex = index"
+            :class="{ 'highlighted': index === highlightedIndex }"
+          >
             <span class="plus-icon">➕</span> {{ m.brand }} {{ m.model }}
           </li>
         </ul>
@@ -237,9 +287,11 @@ const getSideViewStyle = (mouse) => {
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid #3d4448;
+  transition: background-color 0.1s;
 }
 
-.search-dropdown li:hover {
+/* העיצוב למיקום המודגש (גם למקלדת וגם לריחוף עכבר) */
+.search-dropdown li.highlighted {
   background-color: #353b48;
   color: #00e5ff;
 }
@@ -368,7 +420,6 @@ const getSideViewStyle = (mouse) => {
   position: relative;
   width: 400px;
   height: 600px;
-  /* העפנו מכאן את ה-border dashed שהיה קודם */
 }
 
 .side-view-wrapper {
