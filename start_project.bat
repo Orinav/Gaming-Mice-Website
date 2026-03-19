@@ -1,6 +1,7 @@
 @echo off
 echo Starting Mouse Catalog Project...
 
+cd /d "%~dp0"
 :: 1. Run the Scraper first USING THE VIRTUAL ENVIRONMENT
 echo Running Scraper (Downloading latest mice data... Please wait)
 cd backend
