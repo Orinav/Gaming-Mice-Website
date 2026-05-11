@@ -1,20 +1,19 @@
 <template>
-  <div id="app-layout">
-    <nav class="navbar">
-      <div class="nav-links">
-        <router-link to="/mice" class="nav-item">Mice Catalog</router-link>
-        <router-link to="/compare" class="nav-item">Shape Compare</router-link>
-      </div>
-    </nav>
+  <nav class="navbar">
+    <div class="nav-links">
+      <router-link to="/mice" class="nav-item">Mice Catalog</router-link>
+      <router-link to="/compare" class="nav-item">Shape Compare</router-link>
+    </div>
+  </nav>
 
-    <main class="content">
-      <router-view></router-view>
-    </main>
-  </div>
+  <main>
+    <router-view></router-view> <!-- The content is injected automatically by Vue Router at runtime, That's why navbar never disappears in compare to other elements-->
+  </main>
 </template>
 
 <style>
-body {
+body
+{
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #ffffff;
@@ -24,7 +23,7 @@ body {
   background-color: #2c3e50;
   padding: 15px 40px;
   display: flex;
-  justify-content: center; /* הפיקוד שממרכז את התפריט */
+  justify-content: center;
   align-items: center;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
@@ -48,12 +47,12 @@ body {
   background-color: #34495e;
 }
 
-.router-link-active {
+.router-link-active { /* This class is active only at run time */
   color: white;
   background-color: #e74c3c;
 }
 
-.router-link-active:hover {
+.router-link-active:hover { /* This class is active only at run time */
   background-color: #c0392b;
 }
 </style>

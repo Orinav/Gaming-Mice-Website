@@ -1,7 +1,8 @@
-<script setup>
+<script setup> // making everything in script available to template
 import { ref, computed, onMounted, watch } from 'vue'
 import CheckboxFilter from '../components/CheckboxFilter.vue'
 
+//ref is what gives Vue the ability to notice changes and re-render.
 const mice = ref([])
 const searchQuery = ref('')
 
@@ -16,6 +17,7 @@ const selectedSensors = ref([])
 const sortKey = ref('')
 const sortOrder = ref(1)
 
+//watchers are functions that run when a value changes, here they are making sure that the values are within the correct range.
 watch(minWeight, (newVal) => { if (newVal > maxWeight.value) minWeight.value = maxWeight.value })
 watch(maxWeight, (newVal) => { if (newVal < minWeight.value) maxWeight.value = minWeight.value })
 
@@ -31,7 +33,7 @@ const fetchMice = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(() => { //We use onMounted because we need to load mice variable first.
   fetchMice()
 })
 
