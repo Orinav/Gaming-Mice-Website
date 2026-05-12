@@ -1,6 +1,8 @@
 <script setup> // making everything in script available to template
 import { ref, computed, onMounted, watch } from 'vue'
 import CheckboxFilter from '../components/CheckboxFilter.vue'
+//The const keyword prohibits you from doing only one thing: using the assignment operator (=) on the same variable more than once during its lifetime.
+//In loops the const variables destroyed and recreated after each iteration and that's why it valid to use them in loops.
 
 //ref is what gives Vue the ability to notice changes and re-render.
 const mice = ref([])
@@ -37,39 +39,78 @@ onMounted(() => { //We use onMounted because we need to load mice variable first
   fetchMice()
 })
 
-const uniqueBrands = computed(() => {
-  const brands = mice.value.map(m => m.brand).filter(b => b && b !== 'Unknown')
-  return [...new Set(brands)].sort()
+
+const uniqueBrands = computed(() =>
+{
+  const brands = []
+
+  for (const mouse of mice.value)
+  {
+    const brand = mouse.brand
+    if (brand && brand !== 'Unknown') {
+      brands.push(brand)
+    }
+  }
+
+  const noDuplicates = [...new Set(brands)]
+  return noDuplicates.sort()
 })
 
 const uniqueSensors = computed(() => {
-  const relevantMice = selectedBrands.value.length > 0
-    ? mice.value.filter(m => selectedBrands.value.includes(m.brand))
-    : mice.value
-  const sensors = relevantMice.map(m => m.sensor).filter(s => s && s !== 'Unknown')
-  return [...new Set(sensors)].sort()
+  let relevantMice
+
+  if (selectedBrands.value.length > 0) {
+    relevantMice = []
+    for (const mouse of mice.value) {
+      if (selectedBrands.value.includes(mouse.brand)) {
+        relevantMice.push(mouse)
+      }
+    }
+  } else {
+    relevantMice = mice.value
+  }
+
+  const sensors = []
+  for (const mouse of relevantMice) {
+    const sensor = mouse.sensor
+    if (sensor && sensor !== 'Unknown') {
+      sensors.push(sensor)
+    }
+  }
+
+  const noDuplicates = [...new Set(sensors)]
+  return noDuplicates.sort()
 })
 
 watch(uniqueSensors, (newValidSensors) => {
   selectedSensors.value = selectedSensors.value.filter(sensor => newValidSensors.includes(sensor))
 })
 
+//1 = Ascending, -1 = Descending
 const sortBy = (key) => {
-  if (sortKey.value === key) {
-    if (sortOrder.value === 1) {
+  if (sortKey.value === key) //If we already sorting by this key
+  {
+    if (sortOrder.value === 1)
+    {
       sortOrder.value = -1
-    } else {
+    }
+    else //SortOrder.value === -1
+    {
       sortKey.value = ''
       sortOrder.value = 1
     }
-  } else {
+  }
+  else //If we didn't sort by this key yet
+  {
     sortKey.value = key
     sortOrder.value = 1
   }
 }
 
-const filteredMice = computed(() => {
-  let result = mice.value.filter(mouse => {
+const filteredMice = computed(() =>
+{
+  let result = mice.value.filter(mouse =>
+  {
     const matchesSearch = mouse.model.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                           mouse.brand.toLowerCase().includes(searchQuery.value.toLowerCase())
     const matchesBrand = selectedBrands.value.length === 0 || selectedBrands.value.includes(mouse.brand)
@@ -81,8 +122,10 @@ const filteredMice = computed(() => {
     return matchesSearch && matchesBrand && matchesSensor && matchesWeight && matchesLength
   })
 
-  if (sortKey.value) {
-    result = result.sort((a, b) => {
+  if (sortKey.value)
+  {
+    result = result.sort((a, b) =>
+    {
       let aVal = a[sortKey.value]
       let bVal = b[sortKey.value]
 

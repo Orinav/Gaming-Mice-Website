@@ -1,9 +1,26 @@
 <script setup>
-defineProps({
+const props = defineProps({
   options: Array,
   modelValue: Array
 })
-defineEmits(['update:modelValue'])
+
+const emit = defineEmits(['update:modelValue'])
+
+function onCheckboxChange(option, isChecked)
+{
+  const newValue = [...props.modelValue]
+
+  if (isChecked)
+  {
+    newValue.push(option)
+  }
+  else
+  {
+    const index = newValue.indexOf(option)
+    newValue.splice(index, 1)
+  }
+  emit('update:modelValue', newValue)
+}
 </script>
 
 <template>
@@ -13,16 +30,7 @@ defineEmits(['update:modelValue'])
         type="checkbox"
         :value="option"
         :checked="modelValue.includes(option)"
-        @change="(e) => {
-          const newValue = [...modelValue]
-          if (e.target.checked) {
-            newValue.push(option)
-          } else {
-            const index = newValue.indexOf(option)
-            newValue.splice(index, 1)
-          }
-          $emit('update:modelValue', newValue)
-        }"
+        @change="(e) => onCheckboxChange(option, e.target.checked)"
       />
       {{ option }}
     </label>
