@@ -5,7 +5,7 @@ const mice = ref([])
 const searchQuery = ref('')
 const selectedMice = ref([])
 
-const alignOption = ref('center')
+const alignOption = ref('center') //which alignment button is active: 'front', 'center', or 'back'. Starts as 'center'
 const arenaColors = ['#00e5ff', '#ffea00', '#ff00ff', '#00ff00', '#ff4757', '#ffa502', '#7bed9f']
 
 const highlightedIndex = ref(-1)
@@ -14,7 +14,7 @@ const fetchMice = async () => {
   try {
     const response = await fetch('http://127.0.0.1:5000/api/mice')
     const data = await response.json()
-    mice.value = data.sort((a, b) => (a.brand + a.model).localeCompare(b.brand + b.model))
+    mice.value = data.sort((a, b) => (a.brand + a.model).localeCompare(b.brand + b.model)) //  Instead of storing the raw API data, it sorts it immediately before storing. It concatenates brand and model into one string — so "Logitech" + "G Pro X2" becomes "LogitechG Pro X2" — then compares those strings alphabetically with .localeCompare(). This means the search dropdown will always be in A→Z order.
   } catch (error) {
     console.error('Error fetching mice:', error)
   }
@@ -24,21 +24,27 @@ onMounted(() => {
   fetchMice()
 })
 
-watch(searchQuery, () => {
+watch(searchQuery, () => {  //whenever the user types the highlightedinex value is reset
   highlightedIndex.value = -1
 })
+
+const mouseMatchesQuery = (mouse, queryWords) => {
+  const fullName = (mouse.brand + ' ' + mouse.model).toLowerCase()
+  return queryWords.every(word => fullName.includes(word))
+}
+
+const mouseIsNotSelected = (mouse) => {
+  return !selectedMice.value.find(selected => selected.id === mouse.id)
+}
 
 const searchResults = computed(() => {
   if (!searchQuery.value.trim()) return []
 
   const queryWords = searchQuery.value.toLowerCase().trim().split(/\s+/)
 
-  return mice.value.filter(m => {
-    const fullName = (m.brand + ' ' + m.model).toLowerCase()
-    const matchesSearch = queryWords.every(word => fullName.includes(word))
-    const notSelected = !selectedMice.value.find(selected => selected.id === m.id)
-    return matchesSearch && notSelected
-  }).slice(0, 15)
+  return mice.value.filter(mouse => {
+    return mouseMatchesQuery(mouse, queryWords) && mouseIsNotSelected(mouse)
+  })
 })
 
 const handleKeydown = (e) => {
@@ -54,7 +60,8 @@ const handleKeydown = (e) => {
   }
   else if (e.key === 'Enter') {
     e.preventDefault()
-    if (highlightedIndex.value >= 0 && highlightedIndex.value < searchResults.value.length) {
+    const hasKeyboardSelection = highlightedIndex.value >= 0 && highlightedIndex.value < searchResults.value.length
+    if (hasKeyboardSelection) {
       addMouseToArena(searchResults.value[highlightedIndex.value])
     }
     else if (searchResults.value.length > 0) {
