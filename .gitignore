@@ -2,3 +2,4 @@
 **/__pycache__/
 mice_catalog.db
 CLAUDE.MD
+**/.env
