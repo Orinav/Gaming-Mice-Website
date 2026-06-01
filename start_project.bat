@@ -2,10 +2,10 @@
 echo Starting Mouse Catalog Project...
 
 cd /d "%~dp0"
-:: 1. Run the Scraper first USING THE VIRTUAL ENVIRONMENT
-echo Running Scraper (Downloading latest mice data... Please wait)
+:: 1. Fetch data from the API first USING THE VIRTUAL ENVIRONMENT
+echo Fetching latest mice data from the API... Please wait
 cd backend
-call ..\.venv\Scripts\python.exe scraper.py
+call ..\.venv\Scripts\python.exe api_client.py
 cd ..
 
 :: 2. Start Flask Server in a new window USING THE VIRTUAL ENVIRONMENT

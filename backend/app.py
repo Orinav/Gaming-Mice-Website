@@ -4,7 +4,7 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import db_get_mice, db_delete
-from scraper import sync_mice_data_job
+from api_client import sync_mice_data_job
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO,

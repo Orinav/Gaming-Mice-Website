@@ -33,7 +33,7 @@ A full-stack web application designed for gamers and hardware enthusiasts to exp
 ├── backend/
 │   ├── app.py           # Flask server entry point & API routes
 │   ├── database.py      # SQLite connection & queries (Separation of Concerns)
-│   ├── scraper.py       # API fetching & data processing logic
+│   ├── api_client.py    # API fetching & data processing logic
 │   └── mice_catalog.db  # Auto-generated SQLite database
 ├── frontend/
 │   ├── src/             # Vue 3 source code (Components, Views, Router)
@@ -78,7 +78,7 @@ cd ..
 2. Running the Application (Windows)
 For Windows users, simply double-click the start_project.bat file located in the root directory. This script will automatically:
 
-Run the scraper inside the virtual environment to fetch the initial data.
+Fetch data from the API inside the virtual environment to populate the initial data.
 
 Start the Flask backend server.
 
@@ -92,7 +92,7 @@ Terminal 1 (Backend):
 Bash
 cd backend
 # Make sure your venv is activated!
-python scraper.py  # Run once to populate the database
+python api_client.py  # Run once to populate the database
 python app.py      # Start the Flask server
 Terminal 2 (Frontend):
 
